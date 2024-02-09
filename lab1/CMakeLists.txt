@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.10)
+project(A)
+set(CMAKE_CXX_STANDART 17)
+option(USE_FLOAT "use" OFF)
+if(USE_FLOAT)
+	add_definitions(-DUSE_FLOAT)
+endif()
+add_executable(a a.cpp)
