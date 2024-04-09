@@ -3,9 +3,21 @@
 #include <time.h>
 #include <iostream>
 
-const double a = -4.0;
-const double b = 4.0;
-const int nsteps = 40000000;
+#ifndef NSTEPS
+	#define NSTEPS -1
+#endif
+
+#ifndef A
+	#define A -4.0
+#endif
+
+#ifndef B
+	#define B 4.0
+#endif
+
+//const double a = -4.0;
+//const double b = 4.0;
+//const int nsteps = 40000000;
 
 double cpuSecond()
 {
@@ -49,12 +61,23 @@ double integrate_omp(double (*func)(double), double a, double b, int n)
 
 int main()
 {
+	if (NSTEPS <= 0)
+	{
+		std::length_error("Wrong number of steps!");
+		return 0;
+	}
+
+	if(B < A)
+	{
+		std::invalid_argument("B should be bigger than A");
+		return 0;
+	}
 	double timeStart = cpuSecond();
 
-	integrate_omp(func, a, b, nsteps);
+	integrate_omp(func, A, B, NSTEPS);
 
 	double timeRes = cpuSecond() - timeStart;
 
-	std::cout << timeRes;
+	std::cout << timeRes << std::endl;
 	return 0;
 }
