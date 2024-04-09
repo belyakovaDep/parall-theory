@@ -2,6 +2,11 @@
 #include <iostream>
 #include <time.h>
 
+#ifndef ARRAYSIZE
+	#define ARRAYSIZE -1
+#endif
+
+
 double cpuSecond()
 {
 	struct timespec ts;
@@ -66,7 +71,13 @@ void run_parallel(int n)
 
 int main(int argc, char** argv)
 {
-	run_parallel(20000);
+	if (ARRAYSIZE <= 0) 
+	{
+		std::length_error("Wrong size of array");
+		return 0;
+	}
+
+	run_parallel(ARRAYSIZE);
 
 	return 0;
 }
