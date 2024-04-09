@@ -3,18 +3,6 @@
 #include <time.h>
 #include <iostream>
 
-#ifndef NSTEPS
-	#define NSTEPS -1
-#endif
-
-#ifndef A
-	#define A -4.0
-#endif
-
-#ifndef B
-	#define B 4.0
-#endif
-
 //const double a = -4.0;
 //const double b = 4.0;
 //const int nsteps = 40000000;
@@ -63,14 +51,12 @@ int main()
 {
 	if (NSTEPS <= 0)
 	{
-		std::length_error("Wrong number of steps!");
-		return 0;
+		throw std::length_error("Wrong number of steps!");
 	}
 
-	if(B < A)
+	if(B <= A)
 	{
-		std::invalid_argument("B should be bigger than A");
-		return 0;
+		throw std::invalid_argument("B should be bigger than A");
 	}
 	double timeStart = cpuSecond();
 

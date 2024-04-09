@@ -16,7 +16,7 @@ double cpuSecond()
 
 void matrix_vector_product_omp(double* a, double* b, double* c, int n)
 {
-#pragma omp parallel for schedule(dynamic, 50)
+#pragma omp parallel for
     for (int i = 0; i < n; i++)
     {
         c[i] = 0.0;
@@ -29,7 +29,7 @@ void matrix_vector_product_omp(double* a, double* b, double* c, int n)
 
 void substraction(double* a, double* b, double* c, int n)
 {
-#pragma omp parallel for schedule(dynamic, 50)
+#pragma omp parallel for
     for (int i = 0; i < n; i++)
     {
         c[i] = a[i] - b[i];
@@ -38,7 +38,7 @@ void substraction(double* a, double* b, double* c, int n)
 
 void mult(double* a, double t, double* c, int n)
 {
-#pragma omp parallel for schedule(dynamic, 50)
+#pragma omp parallel for
     for (int i = 0; i < n; i++)
     {
         c[i] = a[i] * t;
@@ -49,7 +49,7 @@ void iteration_alg(double* matrix, double* x, double* b, double* newX, int n)
 {
     matrix_vector_product_omp(matrix, x, newX, n);
     substraction(newX, b, newX, n);
-    mult(newX, 0.0001, newX, n);
+    mult(newX, T, newX, n);
     substraction(x, newX, newX, n);
 }
 
@@ -66,15 +66,19 @@ bool check_alg(double* matrix, double* x, double* b, double* checking, int n)
     }
     res = check / bcheck;
 
-    if (res <= 0.00001) return true;
+    if (res <= E) return true;
     return false;
 }
 
 int main()
 {
+    if (N <= 0)
+    {
+        throw std::length_error("Wrong size of matrix!");
+    }
     double t = cpuSecond();
 
-    int n = 17000;
+    int n = N;
     std::unique_ptr<double[]> matrix(new double[n * n]);
     std::unique_ptr<double[]> vector(new double[n]);
     std::unique_ptr<double[]> results(new double[n]);
@@ -101,7 +105,7 @@ int main()
 
     t = cpuSecond() - t;
 
-    std::cout << t;
+    std::cout << t << std::endl;
 
     return 0;
 }

@@ -4,4 +4,4 @@ to run:
 default:
 	A = -4
 	B = 4
-if u will not use NSTEPSm programm will not work. :)
+if u will not use NSTEPS, the programm will not work. :)

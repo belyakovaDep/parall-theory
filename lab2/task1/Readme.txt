@@ -1,4 +1,4 @@
-to run use:
+to run:
 	make ARRAYSIZE=20000
 	./taskOne
-if u will not use "ARRAYSIZE", programm will not work. :)
+if u will not use "ARRAYSIZE", the programm will not work. :)

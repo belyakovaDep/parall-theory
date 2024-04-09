@@ -37,7 +37,7 @@ void integration(const double* matrix, const double* b, const double* x, double*
 
     for (int i = lb; i <= ub; i++)
     {
-        res[i] = res[i] * (0.0001);
+        res[i] = res[i] * (T);
     }
 
     for (int i = lb; i <= ub; i++)
@@ -52,7 +52,7 @@ void cycleChecking(const double* matrix, const double* b, double* x, double* res
     std::unique_ptr<double[]> check(new double[n]);
     double misUp = 0.0, misDown = 0.0, mis = 1;
 
-    while(mis > 0.00001)
+    while(mis > E)
     {
         integration(matrix, b, x, res, n);
 
@@ -100,7 +100,12 @@ void cycleChecking(const double* matrix, const double* b, double* x, double* res
 
 int main()
 {
-    int n = 17000;
+    if(N <= 0)
+    {
+        throw std::length_error("Wrong size of matrix!");
+    }
+    
+    int n = N;
     std::unique_ptr<double[]> matrix(new double[n * n]);
     std::unique_ptr<double[]> vector(new double[n]);
     std::unique_ptr<double[]> results(new double[n]);
