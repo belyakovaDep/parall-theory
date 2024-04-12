@@ -47,7 +47,10 @@ class SensorCam():
 
 def putInfo(sensor, number: int):
     while True:
-        que.put([number, sensor.get()])
+        if(number == 4):
+            que.queue.insert(0, [number, sensor.get()])
+        else:
+            que.put([number, sensor.get()])
 ######################################################3
 
 que = Queue()
@@ -111,12 +114,12 @@ if __name__ == "__main__":
                 cv2.putText(frame, 'Sensor1: '+ str(info[1]), (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
                 cv2.putText(frame, 'Sensor2: '+ str(info[2]), (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
                 show.show(frame)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
         
         except Exception as e:
             print(logging.error(f'Camera got disconnected: {str(e)}'))
             exit(1)
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
 ## python .\lab4MAIN.py 0 1020x920 0.001
