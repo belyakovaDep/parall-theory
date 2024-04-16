@@ -35,6 +35,8 @@ class WindowImage():
 class SensorCam():
     def __init__(self, cameraName, resolution):
         self.cap = cv2.VideoCapture(cameraName)
+        if not self.cap.isOpened():
+             raise Exception('Camera\'s index is wrong.')
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,resolution[1])
 
@@ -42,7 +44,9 @@ class SensorCam():
         self.cap.release()
 
     def get(self):
-        _, frame = self.cap.read()
+        ret, frame = self.cap.read()
+        # if not ret or frame is None:
+        #      raise Exception('Unable to read the input.')
         return frame
 
 def putInfo(sensor, que: Queue):
@@ -77,7 +81,7 @@ if __name__ == "__main__":
     try:
         cap = SensorCam(args.name, camRes)
     except Exception as e:
-        print(logging.error(f'Camera Name or Resolution error: {str(e)}'))
+        print(logging.error(f'Input Device Initialization Error: {str(e)}'))
         exit(1)
     
     sens1 = SensorX(1)
@@ -113,6 +117,8 @@ if __name__ == "__main__":
             if not queSens3.empty():
                     info[2] = queSens3.get_nowait()
 
+            if frame is None:
+                raise Exception('Unable to read the input.')
             if frame is not None:
                 cv2.putText(frame, 'Sensor0: '+ str(info[0]), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
                 cv2.putText(frame, 'Sensor1: '+ str(info[1]), (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
@@ -120,8 +126,6 @@ if __name__ == "__main__":
                 show.show(frame)
     
         except Exception as e:
-            print(logging.error(f'Camera got disconnected: {str(e)}'))
-            cap.__del__()
-            show.__del__()
+            print(logging.error(f'Camera Got Disconnected: {str(e)}'))
             exit(1)
 ## python .\main.py --name=0 --res=640x480 --rate=0.001
