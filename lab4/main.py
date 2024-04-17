@@ -51,8 +51,11 @@ class SensorCam():
 
 def putInfo(sensor, que: Queue):
     while True:
-        if que.full():
-            _ = que.get_nowait()
+        try:
+            if que.full():
+                _ = que.get_nowait()
+        except Exception as e:
+             print('Warning:', e)
 
         que.put_nowait(sensor.get())
 ######################################################
@@ -116,7 +119,9 @@ if __name__ == "__main__":
 
             if not queSens3.empty():
                     info[2] = queSens3.get_nowait()
-
+        except Exception as e:
+            print('Warning:', e)
+        try:
             if frame is None:
                 raise Exception('Unable to read the input.')
             if frame is not None:
