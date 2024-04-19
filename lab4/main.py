@@ -47,7 +47,7 @@ class SensorCam():
         ret, frame = self.cap.read()
         # if not ret or frame is None:
         #      raise Exception('Unable to read the input.')
-        return frame
+        return [ret, frame]
 
 def putInfo(sensor, que: Queue):
     while True:
@@ -71,9 +71,9 @@ if __name__ == "__main__":
         os.makedirs("./log")
 
     parser = argparse.ArgumentParser(description="Args parser: Name, Res, Rate")
-    parser.add_argument("--name", type=int)
-    parser.add_argument("--res", type=str)
-    parser.add_argument("--rate", type=float)
+    parser.add_argument("--name", type=int, default=0)
+    parser.add_argument("--res", type=str, default='640x480')
+    parser.add_argument("--rate", type=float, default=0.001)
     args = parser.parse_args()
     camRes = args.res.split("x")
     camRes = list(map(int, camRes))
@@ -105,11 +105,14 @@ if __name__ == "__main__":
 
     info = [0, 0, 0]
     frame = None
+    ret = True
     
     while not (cv2.waitKey(1) & 0xFF == ord('q')):
         try:
             if not queCam.empty():
                     frame = queCam.get_nowait()
+                    ret = frame[0]
+                    frame = frame[1]
 
             if not queSens1.empty():
                     info[0] = queSens1.get_nowait()
@@ -122,7 +125,7 @@ if __name__ == "__main__":
         except Exception as e:
             print('Warning:', e)
         try:
-            if frame is None:
+            if frame is None and ret  is False:
                 raise Exception('Unable to read the input.')
             if frame is not None:
                 cv2.putText(frame, 'Sensor0: '+ str(info[0]), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
