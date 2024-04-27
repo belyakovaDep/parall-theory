@@ -15,6 +15,7 @@ public:
 	Array(int size)
 	{
 		this->data = new double[size * size];
+		this->size = size;
 		this->totalSize = size * size;
 		std::memset(this->data, 0, size * size * sizeof(double));
 
@@ -32,17 +33,26 @@ public:
 			this->data[size * (size - 1) + i] = CORNER4 + i * step;
 		}
 
-		#pragma acc enter data copyin(this->data[0:totalSize]) async(1)
+		#pragma acc enter data copyin(this->data[0:totalSize], this) 
 	}
 
 	~Array()
 	{
-		#pragma acc update host(this->data[0:totalSize]) async(1)	
-		//#pragma acc exit data copyout(this->data[0:totalSize])
+		//#pragma acc update host(this->data[0:totalSize], this)
+		#pragma acc exit data copyout(this->data[0:totalSize])
+		// for (int i = 0; i < size; i++)
+		// {
+		// 	for (int j = 0; j < size; j++)
+		// 	{
+		// 		std::cout << data[i * size + j] << " ";
+		// 	}
+		// 	std::cout << "\n";
+		// }
 		delete[] data;
 	}
 
 	double* data;
+	int size;
 	size_t totalSize;
 };
 
@@ -74,7 +84,7 @@ int main(int argc, char* argv[])
 
     std::cout << "Start: " << std::endl;
 
-    #pragma acc enter data copyin(error) async(1)
+    #pragma acc enter data copyin(error)
     {
 		clock_t begin = clock();
 		while (error > minError && iter < maxIter)
@@ -87,8 +97,8 @@ int main(int argc, char* argv[])
 			#pragma acc update device(error) async(1)
 			}
 
-			#pragma acc data present(matrixA.data[0:totalSize], matrixB.data[0:totalSize], error)
-			#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max:error) async(1)
+			#pragma acc data present(matrixA.data[0:totalSize], matrixB.data[0:totalSize], matrixB, matrixA, error)
+			#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max:error) async
 			for (int i = 1; i < size - 1; i++)
 			{
 				for (int j = 1; j < size - 1; j++)
@@ -105,7 +115,7 @@ int main(int argc, char* argv[])
 
 			if(iter % 100 == 0)
 			{
-			#pragma acc update host(error) async(1)	
+			#pragma acc update host(error) async(1)
 			#pragma acc wait(1)
 			}
 
@@ -119,14 +129,7 @@ int main(int argc, char* argv[])
     }
 	
     std::cout << "Iter: " << iter << " Error: " << error << std::endl;
-	
-	for (int i = 0; i < size; i++)
-	{
-		for (int j = 0; j < size; j++)
-		{
-			std::cout << matrixA.data[i * size + j] << " ";
-		}
-		std::cout << "\n";
-	}
+	//matrixA.~Array();
+	//matrixB.~Array();
     return 0;
 }
