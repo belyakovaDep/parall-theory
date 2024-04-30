@@ -56,6 +56,22 @@ public:
 	size_t totalSize;
 };
 
+void computeError(Array& matrixA, Array& matrixB, size_t size, double error)
+{
+	size_t totalSize = size*size;
+
+	#pragma acc data present(matrixA.data[0:totalSize], matrixB.data[0:totalSize], matrixB, matrixA, error)
+	#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max:error) async
+    for (int i = 1; i < size - 1; i++)
+    {
+        for (int j = 1; j < size - 1; j++)
+        {
+            double diff = std::fabs(matrixB.data[i * size + j] - matrixA.data[i * size + j]);
+            error = fmax(error, diff);
+        }
+    }
+}
+
 namespace boo = boost::program_options;
 int main(int argc, char* argv[])
 {
@@ -97,7 +113,7 @@ int main(int argc, char* argv[])
 			#pragma acc update device(error) async(1)
 			}
 
-			#pragma acc data present(matrixA.data[0:totalSize], matrixB.data[0:totalSize], matrixB, matrixA, error)
+			#pragma acc data present(matrixA.data[0:totalSize], matrixB.data[0:totalSize], matrixB, matrixA)
 			#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max:error) async
 			for (int i = 1; i < size - 1; i++)
 			{
@@ -109,12 +125,13 @@ int main(int argc, char* argv[])
 					matrixA.data[(i + 1) * size + j] +
 					matrixA.data[i * size + j + 1]);
 
-				if (iter % 100 == 0) error = fmax(error, fabs(matrixB.data[i * size + j] - matrixA.data[i * size + j]));
+				//if (iter % 100 == 0) error = fmax(error, fabs(matrixB.data[i * size + j] - matrixA.data[i * size + j]));
 				}
 			}
 
 			if(iter % 100 == 0)
 			{
+			computeError(matrixA, matrixB, size, error);
 			#pragma acc update host(error) async(1)
 			#pragma acc wait(1)
 			}
