@@ -4,11 +4,6 @@
 #include <cmath>
 #include <ctime>
 
-#define CORNER1 10
-#define CORNER2 20
-#define CORNER3 30
-#define CORNER4 20
-
 namespace boo = boost::program_options;
 int main(int argc, char* argv[])
 {
@@ -34,18 +29,19 @@ int main(int argc, char* argv[])
 	double* matrixB = new double[size * size];
     std::memset(matrixA, 0, size * size * sizeof(double));
 
-    matrixA[0] = CORNER1;
-	matrixA[size - 1] = CORNER2;
-	matrixA[size * size - 1] = CORNER3;
-	matrixA[size * (size - 1)] = CORNER4;
+    int corner1 = 10, corner2 = 20, corner3 = 30, corner4 = 20;
+    matrixA[0] = corner1;
+	matrixA[size - 1] = corner2;
+	matrixA[size * size - 1] = corner3;
+	matrixA[size * (size - 1)] = corner4;
 
-    const double step = 1.0 * (CORNER2 - CORNER1) / (size - 1);
+    const double step = 1.0 * (corner2 - corner1) / (size - 1);
 	for (int i = 1; i < size - 1; i++)
 	{
-		matrixA[i] = CORNER1 + i * step;
-		matrixA[i * size] = CORNER1 + i * step;
-		matrixA[(size - 1) + i * size] = CORNER2 + i * step;
-		matrixA[size * (size - 1) + i] = CORNER4 + i * step;
+		matrixA[i] = corner1 + i * step;
+		matrixA[i * size] = corner1 + i * step;
+		matrixA[(size - 1) + i * size] = corner2 + i * step;
+		matrixA[size * (size - 1) + i] = corner4 + i * step;
 	}
 	std::memcpy(matrixB, matrixA, size * size * sizeof(double));
 
@@ -61,12 +57,6 @@ int main(int argc, char* argv[])
 		while (error > minError && iter < maxIter)
 		{	    
 			iter++;
-			
-			if(iter % 100 == 0)
-			{
-			error = 0.0;
-			#pragma acc update device(error) async(1)
-			}
 
 			#pragma acc data present(matrixA, matrixB, error)
 			#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max:error) async(1)
@@ -80,12 +70,24 @@ int main(int argc, char* argv[])
 					matrixA[(i + 1) * size + j] +
 					matrixA[i * size + j + 1]);
 
-				error = fmax(error, fabs(matrixB[i * size + j] - matrixA[i * size + j]));
+				if (iter % 100 == 0) error = fmax(error, fabs(matrixB[i * size + j] - matrixA[i * size + j]));
 				}
 			}
 
 			if(iter % 100 == 0)
 			{
+            error = 0.0;
+			#pragma acc update device(error) async(1)
+
+            #pragma acc data present(matrixA, matrixB, error)
+			#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max:error) async(1)
+			for (int i = 1; i < size - 1; i++)
+			{
+				for (int j = 1; j < size - 1; j++)
+				{
+                     error = fmax(error, fabs(matrixB[i * size + j] - matrixA[i * size + j]));
+				}
+			}
 			#pragma acc update host(error) async(1)	
 			#pragma acc wait(1)
 			}
