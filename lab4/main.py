@@ -36,6 +36,7 @@ class SensorCam():
     def __init__(self, cameraName, resolution):
         self.cap = cv2.VideoCapture(cameraName)
         if not self.cap.isOpened():
+             print('Camera\'s index is wrong.')
              raise Exception('Camera\'s index is wrong.')
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,resolution[1])

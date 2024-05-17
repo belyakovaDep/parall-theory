@@ -5,6 +5,7 @@
 #include <ctime>
 #include <cublas_v2.h>
 #include <fstream>
+#include <memory>
 
 namespace boo = boost::program_options;
 int main(int argc, char* argv[])
@@ -27,8 +28,13 @@ int main(int argc, char* argv[])
 
     
     const size_t totalSize = size * size;
-    double* matrixA = new double[size * size];
-	double* matrixB = new double[size * size];
+
+	std::shared_ptr<double[]> matrA(new double[size * size]);
+	std::shared_ptr<double[]> matrB(new double[size * size]);
+
+	double* matrixA = matrA.get();
+	double* matrixB = matrB.get();
+
     std::memset(matrixA, 0, size * size * sizeof(double));
 
     int corner1 = 10, corner2 = 20, corner3 = 30, corner4 = 20;
@@ -125,7 +131,5 @@ int main(int argc, char* argv[])
         outputFile.close();
 	}
 
-    delete[] matrixA;
-    delete[] matrixB;
     return 0;
 }
