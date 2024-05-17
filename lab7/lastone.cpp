@@ -3,9 +3,9 @@
 #include <cstring>
 #include <cmath>
 #include <ctime>
+#include <memory>
 #include <cublas_v2.h>
 #include <fstream>
-#include <memory>
 
 namespace boo = boost::program_options;
 int main(int argc, char* argv[])
