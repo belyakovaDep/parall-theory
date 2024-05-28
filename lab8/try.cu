@@ -15,7 +15,6 @@
 #define ERROR_STEP 100
 
 namespace boo = boost::program_options;
-// Главная функция - расчёт поля 
 __global__
 void calculateMatrix(double* matrixA, double* matrixB, size_t size)
 {
@@ -31,7 +30,6 @@ void calculateMatrix(double* matrixA, double* matrixB, size_t size)
 	}
 }
 
-// Функция, подсчитывающая разницу матриц
 __global__
 void getErrorMatrix(double* matrixA, double* matrixB, double* outputMatrix, size_t size)
 {
@@ -44,10 +42,6 @@ void getErrorMatrix(double* matrixA, double* matrixB, double* outputMatrix, size
 
 int main(int argc, char** argv)
 {
-	// Получаем значения из коммандной строки
-	//const double minError = std::pow(10, -std::stoi(argv[1]));
-	//const int size = std::stoi(argv[2]);
-	//const int maxIter = std::stoi(argv[3]);
 	boo::options_description desc{"Options"};
     desc.add_options()
       ("help,h", "help screen")
@@ -66,7 +60,6 @@ int main(int argc, char** argv)
     
     const size_t totalSize = size * size;
 
-	// Выделение памяти на хосте
 	double* matrixA;
 	double* matrixB;
 
@@ -75,7 +68,6 @@ int main(int argc, char** argv)
 	
 	std::memset(matrixA, 0, totalSize * sizeof(double));
 
-	// Заполнение граничных условий
 	matrixA[0] = CORNER1;
 	matrixA[size - 1] = CORNER2;
 	matrixA[size * size - 1] = CORNER3;
@@ -92,10 +84,6 @@ int main(int argc, char** argv)
 
 	std::memcpy(matrixB, matrixA, totalSize * sizeof(double));
 
-	// Выбор устройства
-	//cudaSetDevice(2);
-
-	// Выделяем папять на девайсе и копируем память с хоста
 	double* deviceMatrixAPtr, *deviceMatrixBPtr, *deviceError, *errorMatrix, *tempStorage = NULL;
 	size_t tempStorageSize = 0;
 
@@ -120,10 +108,8 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// Здесь мы получаем размер временного буфера для редукции
 	cub::DeviceReduce::Max(tempStorage, tempStorageSize, errorMatrix, deviceError, totalSize);
 	
-	// Выделяем память для буфера
 	cudaMalloc((void**)&tempStorage, tempStorageSize);
 
 	int iter = 0; 
@@ -144,11 +130,10 @@ int main(int argc, char** argv)
     dim3 gridDim(blocks * 32, blocks * 32);
 
     std::cout << "Start: " << std::endl;
-	// Главный алгоритм 
+
 	clock_t begin = clock();
 	while(iter < maxIter && *error > minError)
 	{
-		// Расчет матрицы
 		if (isGraphCreated)
 		{
 			cudaGraphLaunch(instance, stream);
@@ -167,7 +152,7 @@ int main(int argc, char** argv)
 				calculateMatrix<<<gridDim, blockDim, 0, stream>>>(deviceMatrixAPtr, deviceMatrixBPtr, size);
 				calculateMatrix<<<gridDim, blockDim, 0, stream>>>(deviceMatrixBPtr, deviceMatrixAPtr, size);
 			}
-			// Расчитываем ошибку каждую сотую итерацию
+
 			getErrorMatrix<<<threads * blocks * blocks, threads,  0, stream>>>(deviceMatrixAPtr, deviceMatrixBPtr, errorMatrix, size);
 			cub::DeviceReduce::Max(tempStorage, tempStorageSize, errorMatrix, deviceError, totalSize, stream);
 	
@@ -181,7 +166,6 @@ int main(int argc, char** argv)
 	std::cout << "Time: " << 1.0 * (end - begin) / CLOCKS_PER_SEC << std::endl;
 	std::cout << "Iter: " << iter << " Error: " << *error << std::endl;
 
-	// Высвобождение памяти
 	cudaFree(deviceMatrixAPtr);
 	cudaFree(deviceMatrixBPtr);
 	cudaFree(errorMatrix);
