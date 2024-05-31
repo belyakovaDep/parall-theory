@@ -7,14 +7,37 @@
 #include <cuda_runtime.h>
 #include <cub/cub.cuh>
 
-#define CORNER1 10
-#define CORNER2 20
-#define CORNER3 30
-#define CORNER4 20
-
-#define ERROR_STEP 100
-
 namespace boo = boost::program_options;
+
+struct CudaDeleter {
+    void operator()(double* ptr) const {
+        cudaFree(ptr);
+    }
+};
+
+struct CudaStreamDeleter {
+    void operator()(cudaStream_t* stream) const {
+        cudaStreamDestroy(*stream);
+    }
+};
+
+struct CudaGraphDeleter {
+    void operator()(cudaGraph_t* graph) const {
+        cudaGraphDestroy(*graph);
+    }
+};
+
+std::unique_ptr<cudaStream_t, CudaStreamDeleter> createCudaStream() {
+    cudaStream_t* stream = new cudaStream_t;
+    cudaError_t err = cudaStreamCreate(stream);
+    return std::unique_ptr<cudaStream_t, CudaStreamDeleter>(stream);
+}
+
+std::unique_ptr<cudaGraph_t, CudaGraphDeleter> createCudaGraph() {
+    cudaGraph_t* graph = new cudaGraph_t;
+    return std::unique_ptr<cudaGraph_t, CudaGraphDeleter>(graph);
+}
+
 __global__
 void calculateMatrix(double* matrixA, double* matrixB, size_t size)
 {
@@ -39,9 +62,16 @@ void getErrorMatrix(double* matrixA, double* matrixB, double* outputMatrix, size
 	outputMatrix[idx] = std::abs(matrixB[idx] - matrixA[idx]);
 }
 
+const double corner1 = 10;
+const double corner2 = 20;
+const double corner3 = 30;
+const double corner4 = 20;
+
+const int error_step = 100;
 
 int main(int argc, char** argv)
 {
+
 	boo::options_description desc{"Options"};
     desc.add_options()
       ("help,h", "help screen")
@@ -59,33 +89,50 @@ int main(int argc, char** argv)
     const float minError = vm["accuracy"].as<float>();
     
     const size_t totalSize = size * size;
+	
+	std::unique_ptr<double, CudaDeleter> uMatrixA;
+	double *matrixA = uMatrixA.get();
 
-	double* matrixA;
-	double* matrixB;
+	std::unique_ptr<double, CudaDeleter> uMatrixB;
+	double *matrixB = uMatrixB.get();
 
 	cudaMallocHost(&matrixA, totalSize * sizeof(double));
 	cudaMallocHost(&matrixB, totalSize * sizeof(double));
 	
 	std::memset(matrixA, 0, totalSize * sizeof(double));
 
-	matrixA[0] = CORNER1;
-	matrixA[size - 1] = CORNER2;
-	matrixA[size * size - 1] = CORNER3;
-	matrixA[size * (size - 1)] = CORNER4;
+	matrixA[0] = corner1;
+	matrixA[size - 1] = corner2;
+	matrixA[size * size - 1] = corner3;
+	matrixA[size * (size - 1)] = corner4;
 
-	const double step = 1.0 * (CORNER2 - CORNER1) / (size - 1);
+	const double step = 1.0 * (corner2 - corner1) / (size - 1);
 	for (int i = 1; i < size - 1; i++)
 	{
-		matrixA[i] = CORNER1 + i * step;
-		matrixA[i * size] = CORNER1 + i * step;
-		matrixA[size - 1 + i * size] = CORNER2 + i * step;
-		matrixA[size * (size - 1) + i] = CORNER4 + i * step;
+		matrixA[i] = corner1 + i * step;
+		matrixA[i * size] = corner1 + i * step;
+		matrixA[size - 1 + i * size] = corner2 + i * step;
+		matrixA[size * (size - 1) + i] = corner4 + i * step;
 	}
 
 	std::memcpy(matrixB, matrixA, totalSize * sizeof(double));
 
-	double* deviceMatrixAPtr, *deviceMatrixBPtr, *deviceError, *errorMatrix, *tempStorage = NULL;
 	size_t tempStorageSize = 0;
+
+	std::unique_ptr<double, CudaDeleter> uDeviceMatrixAPtr;
+	double *deviceMatrixAPtr = uDeviceMatrixAPtr.get();
+
+	std::unique_ptr<double, CudaDeleter> uDeviceMatrixBPtr;
+	double *deviceMatrixBPtr = uDeviceMatrixBPtr.get();
+
+	std::unique_ptr<double, CudaDeleter> uDeviceError;
+	double *deviceError = uDeviceError.get();
+
+	std::unique_ptr<double, CudaDeleter> uErrorMatrix;
+	double *errorMatrix = uErrorMatrix.get();
+
+	std::unique_ptr<double, CudaDeleter> uTempStorage;
+	double *tempStorage = uTempStorage.get();
 
 	cudaError_t cudaStatus_1 = cudaMalloc((void**)(&deviceMatrixAPtr), sizeof(double) * totalSize);
 	cudaError_t cudaStatus_2 = cudaMalloc((void**)(&deviceMatrixBPtr), sizeof(double) * totalSize);
@@ -113,21 +160,25 @@ int main(int argc, char** argv)
 	cudaMalloc((void**)&tempStorage, tempStorageSize);
 
 	int iter = 0; 
-	double* error;
+	std::unique_ptr<double, CudaDeleter> uError;
+	double *error = uError.get();
 	cudaMallocHost(&error, sizeof(double));
 	*error = 1.0;
 
+	auto uStream = createCudaStream();
+    cudaStream_t stream = *uStream.get();
+
 	bool isGraphCreated = false;
-	cudaStream_t stream;
-	cudaStreamCreate(&stream);
-	cudaGraph_t graph;
+	//cudaStream_t stream;
+	auto uGraph = createCudaGraph();
+	auto graph = uGraph.get();
 	cudaGraphExec_t instance;
 
 	size_t threads = (size < 1024) ? size : 1024;
     unsigned int blocks = size / threads;
 
-	dim3 blockDim(threads / 32, threads / 32);
-    dim3 gridDim(blocks * 32, blocks * 32);
+	dim3 blockDim(32, 32);
+    dim3 gridDim((size + blockDim.x - 1) /  blockDim.x, (size + blockDim.y - 1) /  blockDim.y);
 
     std::cout << "Start: " << std::endl;
 
@@ -142,12 +193,12 @@ int main(int argc, char** argv)
 
 			cudaStreamSynchronize(stream);
 
-			iter += ERROR_STEP;
+			iter += error_step;
 		}
 		else
 		{
 			cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
-			for(size_t i = 0; i < ERROR_STEP / 2; i++)
+			for(size_t i = 0; i < error_step / 2; i++)
 			{
 				calculateMatrix<<<gridDim, blockDim, 0, stream>>>(deviceMatrixAPtr, deviceMatrixBPtr, size);
 				calculateMatrix<<<gridDim, blockDim, 0, stream>>>(deviceMatrixBPtr, deviceMatrixAPtr, size);
@@ -156,8 +207,8 @@ int main(int argc, char** argv)
 			getErrorMatrix<<<threads * blocks * blocks, threads,  0, stream>>>(deviceMatrixAPtr, deviceMatrixBPtr, errorMatrix, size);
 			cub::DeviceReduce::Max(tempStorage, tempStorageSize, errorMatrix, deviceError, totalSize, stream);
 	
-			cudaStreamEndCapture(stream, &graph);
-			cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
+			cudaStreamEndCapture(stream, graph);
+			cudaGraphInstantiate(&instance, *graph, NULL, NULL, 0);
 			isGraphCreated = true;
   		}
 	}
@@ -165,16 +216,6 @@ int main(int argc, char** argv)
 	clock_t end = clock();
 	std::cout << "Time: " << 1.0 * (end - begin) / CLOCKS_PER_SEC << std::endl;
 	std::cout << "Iter: " << iter << " Error: " << *error << std::endl;
-
-	cudaFree(deviceMatrixAPtr);
-	cudaFree(deviceMatrixBPtr);
-	cudaFree(errorMatrix);
-	cudaFree(tempStorage);
-	cudaFree(matrixA);
-	cudaFree(matrixB);
-
-	cudaStreamDestroy(stream);
-	cudaGraphDestroy(graph);
 
 	return 0;
 }
